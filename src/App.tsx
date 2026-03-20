@@ -15,6 +15,7 @@ import { ChatProvider, useChat } from "./contexts/ChatContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Auth from "./pages/Auth";
 import OTPVerification from "./pages/Otp";
+import FindDoctor from "./pages/FindDoctor";
 
 const queryClient = new QueryClient();
 
@@ -81,6 +82,7 @@ const App = () => {
                 <Route path="/dashboard/alerts" element={<AlertsDash />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/verify" element={<OTPVerification />} />
+                <Route path="/find-doctor" element={<FindDoctor />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

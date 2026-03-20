@@ -16,6 +16,8 @@ import { useChat } from "../contexts/ChatContext";
 
 import { useSpeech } from "@/hooks/useSpeech";
 import { ThemeToggle } from "./ThemeToggle";
+import { useNavigate } from "react-router-dom";
+
 interface Message {
   id: string;
   content: string;
@@ -24,6 +26,7 @@ interface Message {
 }
 
 export function ChatInterface() {
+  const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const {
     conversations,
@@ -358,6 +361,13 @@ export function ChatInterface() {
                 <MapPin className="h-4 w-4 mr-1" />
                 {location ? t("chat.locationOn") : t("chat.location")}
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/find-doctor")}
+                >
+                  🏥 Find Doctor
+                </Button>
             </div>
           </div>
 
