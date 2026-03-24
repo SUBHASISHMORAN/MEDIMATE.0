@@ -2,205 +2,201 @@ import {
   GoogleMap,
   LoadScript,
   Marker,
-  InfoWindow,
+  DirectionsRenderer,
   OverlayView,
+  InfoWindow,
 } from "@react-google-maps/api";
 import { useEffect, useState } from "react";
+import "../map.css";
 
 const containerStyle = {
   width: "100%",
-  height: "60vh",
+  height: "100vh",
 };
 
-const FindDoctor = () => {
-  const [position, setPosition] = useState<any>(null);
+export default function FindDoctor() {
+  const [map, setMap] = useState<any>(null);
+  const [currentLocation, setCurrentLocation] = useState<any>(null);
   const [places, setPlaces] = useState<any[]>([]);
-  const [mapLoaded, setMapLoaded] = useState(false);
+  const [directions, setDirections] = useState<any>(null);
   const [selectedPlace, setSelectedPlace] = useState<any>(null);
+  const [distance, setDistance] = useState("");
+  const [duration, setDuration] = useState("");
 
-  // 📍 Get live location
+  // 📍 Get user location
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const location = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        };
-
-        console.log("LIVE LOCATION:", location);
-        setPosition(location);
-      },
-      (err) => console.error(err),
-      { enableHighAccuracy: true }
-    );
+    navigator.geolocation.getCurrentPosition((pos) => {
+      setCurrentLocation({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+      });
+    });
   }, []);
 
-  // 🏥 Fetch doctors/hospitals
-  const fetchPlaces = () => {
-    if (!position || !window.google) return;
+  // 🏥 ADVANCED SEARCH (MULTI + PAGINATION)
+  useEffect(() => {
+    if (!map || !currentLocation) return;
 
-    const service = new window.google.maps.places.PlacesService(
-      document.createElement("div")
-    );
+    const service = new google.maps.places.PlacesService(map);
+    let allResults: any[] = [];
 
-    const request = {
-      location: position,
-      radius: 5000,
-      keyword: "doctor",
-    };
+    const keywords = [
+      "hospital",
+      "clinic",
+      "doctor",
+      "medical",
+      "nursing home",
+    ];
 
-    service.nearbySearch(request, (results: any, status: any) => {
-      if (status === "OK") {
-        const filtered = results.filter((place: any) =>
-            place.types.some((type: string) =>
-            [
-              "doctor",
-              "hospital",
-              "health",
-              "pharmacy",
-              "dentist",
-              "physiotherapist",
-            ].includes(type)
-            )
+    keywords.forEach((keyword) => {
+      service.nearbySearch(
+        {
+          location: currentLocation,
+          radius: 15000,
+          keyword,
+        },
+        (results: any, status: any, pagination: any) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK) {
+            allResults = [...allResults, ...results];
+
+            // 🔁 Pagination
+            if (pagination && pagination.hasNextPage) {
+              setTimeout(() => pagination.nextPage(), 1000);
+            }
+
+            // 🔍 Strict filter
+            const filtered = allResults.filter(
+              (place: any) =>
+                place.types.includes("hospital") ||
+                place.types.includes("doctor") ||
+                place.types.includes("health") ||
+                place.name.toLowerCase().includes("clinic") ||
+                place.name.toLowerCase().includes("medical") ||
+                place.name.toLowerCase().includes("nursing"),
             );
-            setPlaces(filtered);
-        }
+
+            // ❌ Remove duplicates
+            const unique = Array.from(
+              new Map(filtered.map((p) => [p.place_id, p])).values(),
+            );
+
+            setPlaces(unique);
+          }
+        },
+      );
     });
+  }, [map, currentLocation]);
+
+  // 🚗 ROUTE FUNCTION
+  const getRoute = (place: any) => {
+    if (!currentLocation) return;
+
+    const directionsService = new google.maps.DirectionsService();
+
+    directionsService.route(
+      {
+        origin: currentLocation,
+        destination: {
+          lat: place.geometry.location.lat(),
+          lng: place.geometry.location.lng(),
+        },
+        travelMode: google.maps.TravelMode.DRIVING,
+      },
+      (result: any, status: any) => {
+        if (status === "OK") {
+          setDirections(result);
+
+          const leg = result.routes[0].legs[0];
+          setDistance(leg.distance.text);
+          setDuration(leg.duration.text);
+        }
+      },
+    );
   };
 
-  // 🔥 Run after map loads
-  useEffect(() => {
-    if (mapLoaded && position) {
-      fetchPlaces();
-    }
-  }, [mapLoaded, position]);
-
-  if (!position) return <p>📍 Getting your live location...</p>;
-
   return (
-    <div style={{ height: "100vh", width: "100%" }}>
-      <h2 style={{ padding: "10px" }}>🏥 Doctors Near You</h2>
-
-      <LoadScript
-        googleMapsApiKey="AIzaSyCXpa9fvY4a4Og0Wrmpl0Kc9QCTlcw3gSM"
-        libraries={["places"]}
-        onLoad={() => setMapLoaded(true)}
-      >
-        <GoogleMap
-          mapContainerStyle={containerStyle}
-          center={position}
-          zoom={14}
-        >
-          {/* 📍 User location */}
-          <Marker position={position} />
-
-          {/* 🏥 Doctors */}
-          {places.map((place, i) => (
-            <div key={i}>
-  {/* 🔴 Marker */}
-  <Marker
-    position={place.geometry.location}
-    onClick={() => setSelectedPlace(place)}
-    icon={{
-      path: window.google.maps.SymbolPath.CIRCLE,
-      scale: 6,
-      fillColor: "red",
-      fillOpacity: 1,
-      strokeWeight: 1,
-    }}
-  />
-
-  {/* 🔵 ALWAYS VISIBLE NAME */}
-  <OverlayView
-    position={place.geometry.location}
-    mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-  >
-    <div
-      style={{
-        color: "blue",
-        fontSize: "12px",
-        fontWeight: "bold",
-        background: "white",
-        padding: "2px 6px",
-        borderRadius: "6px",
-        transform: "translate(-50%, -120%)",
-        whiteSpace: "nowrap",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-      }}
+    <LoadScript
+      googleMapsApiKey="AIzaSyAHFnmprUqvoz9H0FQGOlXBWCcJnrHwDvw"
+      libraries={["places"]}
     >
-      {place.name}
-    </div>
-  </OverlayView>
-</div>
-          ))}
-
-          {/* 📍 Info window (name + details) */}
-          {selectedPlace && (
-            <InfoWindow
-              position={selectedPlace.geometry.location}
-              onCloseClick={() => setSelectedPlace(null)}
-            >
-              <div>
-                <h3>{selectedPlace.name}</h3>
-                <p>⭐ {selectedPlace.rating || "N/A"}</p>
-                <p>{selectedPlace.vicinity}</p>
-              </div>
-            </InfoWindow>
-          )}
-        </GoogleMap>
-      </LoadScript>
-
-      {/* 📋 Doctor cards */}
-      <div style={{ padding: "10px" }}>
-        {places.map((place, i) => (
-          <div
-            key={i}
-            style={{
-              border: "1px solid #ccc",
-              padding: "10px",
-              marginBottom: "10px",
-              borderRadius: "10px",
-              background: "#1e1e1e",
-              color: "white",
+      <GoogleMap
+        mapContainerStyle={containerStyle}
+        center={currentLocation}
+        zoom={14}
+        onLoad={(map) => setMap(map)}
+        options={{
+          styles: [
+            { featureType: "poi", stylers: [{ visibility: "off" }] },
+            { featureType: "poi.medical", stylers: [{ visibility: "on" }] },
+            { featureType: "poi.business", stylers: [{ visibility: "off" }] },
+            { featureType: "transit", stylers: [{ visibility: "off" }] },
+          ],
+        }}
+      >
+        {/* 📍 USER LOCATION */}
+        {currentLocation && (
+          <Marker
+            position={currentLocation}
+            icon={{
+              url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
             }}
-          >
-            <h3>{place.name}</h3>
-            <p>⭐ Rating: {place.rating || "N/A"}</p>
-            <p>📍 {place.vicinity}</p>
+          />
+        )}
 
-            <div style={{ display: "flex", gap: "10px" }}>
-              <a
-                href={`https://www.google.com/maps/dir/?api=1&destination=${place.geometry.location.lat()},${place.geometry.location.lng()}`}
-                target="_blank"
-              >
-                <button
-                  style={{
-                    padding: "6px 10px",
-                    background: "green",
-                    color: "white",
-                    borderRadius: "5px",
-                  }}
-                >
-                  🧭 Directions
-                </button>
-              </a>
+        {/* 🏥 MEDICAL MARKERS + LABELS */}
+        {places.map((place, i) => {
+          const position = {
+            lat: place.geometry.location.lat(),
+            lng: place.geometry.location.lng(),
+          };
 
-              <button
-                style={{
-                  padding: "6px 10px",
-                  background: "blue",
-                  color: "white",
-                  borderRadius: "5px",
+          return (
+            <div key={i}>
+              <Marker
+                position={position}
+                onClick={() => {
+                  setSelectedPlace(place);
+                  getRoute(place);
                 }}
-              >
-                📞 Call
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
+              />
 
-export default FindDoctor;
+              <OverlayView
+                position={position}
+                mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+              >
+                <div className="label">{place.name}</div>
+              </OverlayView>
+            </div>
+          );
+        })}
+
+        {/* 🚗 ROUTE */}
+        {directions && <DirectionsRenderer directions={directions} />}
+
+        {/* 📊 INFO BOX */}
+        {distance && (
+          <div className="info-box">
+            <b>Distance:</b> {distance} <br />
+            <b>Time:</b> {duration}
+          </div>
+        )}
+
+        {/* 📍 INFO WINDOW */}
+        {selectedPlace && (
+          <InfoWindow
+            position={{
+              lat: selectedPlace.geometry.location.lat(),
+              lng: selectedPlace.geometry.location.lng(),
+            }}
+            onCloseClick={() => setSelectedPlace(null)}
+          >
+            <div className="info-content">
+              <h4>{selectedPlace.name}</h4>
+              <p>{selectedPlace.vicinity}</p>
+            </div>
+          </InfoWindow>
+        )}
+      </GoogleMap>
+    </LoadScript>
+  );
+}

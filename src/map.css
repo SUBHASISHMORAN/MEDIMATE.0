@@ -1,0 +1,26 @@
+.label {
+  background: white;
+  padding: 4px 8px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #d32f2f;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+}
+
+.info-box {
+  position: absolute;
+  bottom: 30px;
+  left: 30px;
+  background: #6a11cb;
+  color: white;
+  padding: 12px;
+  border-radius: 10px;
+  z-index: 999;
+}
+
+.info-content {
+  color: black;
+  opacity: 1 !important;
+}
